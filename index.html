@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Usuarios - LocalStorage</title>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        body { 
+            font-family: 'Segoe UI', sans-serif; 
+            margin: 30px; 
+            background-color: #f4f7f6; 
+            background-image: url('https://www.mundodeportivo.com/files/image_948_465/uploads/2020/06/24/60e74bb81b38f.png'); 
+            background-size: cover; 
+            background-position: center; 
+            background-attachment: fixed; 
+            background-repeat: no-repeat; 
+        }
+        .container { 
+            max-width: 900px; 
+            margin: auto; 
+            background: rgba(255, 255, 255, 0.92); 
+            padding: 30px; 
+            border-radius: 15px; 
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15); 
+        }
+        h2 { color: #2c3e50; text-align: center; margin-bottom: 25px; }
+        .form-group { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-bottom: 30px; }
+        input { padding: 12px; border: 1px solid #ced4da; border-radius: 6px; flex: 1; min-width: 180px; }
+        input:disabled { background-color: #e9ecef; cursor: not-allowed; }
+        button { padding: 12px 24px; cursor: pointer; border: none; border-radius: 6px; font-weight: 600; transition: all 0.2s; }
+        .btn-save { background: #28a745; color: white; }
+        .btn-update { background: #ffc107; color: #212529; }
+        .btn-cancel { background: #6c757d; color: white; }
+        .btn-refresh { background: #007bff; color: white; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 15px; text-align: left; border-bottom: 1px solid #dee2e6; }
+        th { background-color: #f8f9fa; color: #495057; }
+        .btn-delete { background: #dc3545; color: white; padding: 6px 12px; }
+        .btn-edit { background: #17a2b8; color: white; padding: 6px 12px; margin-right: 5px; }
+        button:hover { opacity: 0.85; transform: translateY(-1px); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Panel Administrativo de Usuarios (CI/CD)</h2>
+        <div class="form-group">
+            <input type="text" id="userId" placeholder="ID (Identificador)">
+            <input type="text" id="userName" placeholder="Nombre (Solo letras)">
+            <input type="email" id="userEmail" placeholder="Correo electrónico">
+            <button class="btn-save" id="btnMain" onclick="processForm()">Guardar Usuario</button>
+            <button class="btn-cancel" id="btnCancel" onclick="resetForm()" style="display: none;">Cancelar</button>
+            <button class="btn-refresh" onclick="renderUsers()">🔄</button>
+        </div>
+
+        <table id="userTable">
+            <thead>
+                <tr>
+                    <th>ID</th><th>Nombre</th><th>Email</th><th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <script>
+        let isEditing = false;
+        const STORAGE_KEY = 'usuarios_db';
+
+        // --- LÓGICA DE LOCALSTORAGE (Reemplaza a index.js) ---
+        
+        function getLocalUsers() {
+            const data = localStorage.getItem(STORAGE_KEY);
+            return data ? JSON.parse(data) : [];
+        }
+
+        function saveLocalUsers(users) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(users));
+        }
+
+        function renderUsers() {
+            const users = getLocalUsers();
+            const tbody = document.querySelector('#userTable tbody');
+            tbody.innerHTML = '';
+            users.forEach(user => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${user.id}</td>
+                        <td>${user.name}</td>
+                        <td>${user.email}</td>
+                        <td>
+                            <button class="btn-edit" onclick="prepareEdit('${user.id}', '${user.name}', '${user.email}')">Editar</button>
+                            <button class="btn-delete" onclick="confirmDelete('${user.id}')">Borrar</button>
+                        </td>
+                    </tr>`;
+            });
+        }
+
+        function validateData(id, name, email) {
+            const users = getLocalUsers();
+            if (!id || !name || !email) {
+                Swal.fire('Atención', 'Todos los campos son obligatorios', 'warning');
+                return false;
+            }
+            if (!/^[a-zA-Z\s]+$/.test(name)) {
+                Swal.fire('Error', 'El nombre solo puede contener letras', 'error');
+                return false;
+            }
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                Swal.fire('Error', 'El formato del correo es inválido', 'error');
+                return false;
+            }
+            
+            // Validar ID único (solo al crear)
+            if (!isEditing && users.some(u => u.id === id)) {
+                Swal.fire('Error', 'El ID ya existe', 'error');
+                return false;
+            }
+
+            // Validar correo único
+            const emailExists = users.some(u => u.email === email && (!isEditing || u.id !== id));
+            if (emailExists) {
+                Swal.fire('Error', 'Este correo ya está registrado', 'error');
+                return false;
+            }
+            return true;
+        }
+
+        function processForm() {
+            const id = document.getElementById('userId').value.trim();
+            const name = document.getElementById('userName').value.trim();
+            const email = document.getElementById('userEmail').value.trim();
+
+            if (!validateData(id, name, email)) return;
+
+            let users = getLocalUsers();
+
+            if (isEditing) {
+                const index = users.findIndex(u => u.id === id);
+                users[index] = { id, name, email };
+                Swal.fire('¡Éxito!', 'Usuario actualizado correctamente', 'success');
+            } else {
+                users.push({ id, name, email });
+                Swal.fire('¡Éxito!', 'Usuario creado correctamente', 'success');
+            }
+
+            saveLocalUsers(users);
+            resetForm();
+            renderUsers();
+        }
+
+        function prepareEdit(id, name, email) {
+            document.getElementById('userId').value = id;
+            document.getElementById('userId').disabled = true;
+            document.getElementById('userName').value = name;
+            document.getElementById('userEmail').value = email;
+            document.getElementById('btnMain').innerText = "Actualizar";
+            document.getElementById('btnMain').className = "btn-update";
+            document.getElementById('btnCancel').style.display = "inline-block";
+            isEditing = true;
+        }
+
+        function resetForm() {
+            document.getElementById('userId').value = '';
+            document.getElementById('userId').disabled = false;
+            document.getElementById('userName').value = '';
+            document.getElementById('userEmail').value = '';
+            document.getElementById('btnMain').innerText = "Guardar Usuario";
+            document.getElementById('btnMain').className = "btn-save";
+            document.getElementById('btnCancel').style.display = "none";
+            isEditing = false;
+        }
+
+        function confirmDelete(id) {
+            Swal.fire({
+                title: '¿Confirmar eliminación?',
+                text: "Esta acción borrará el dato de tu navegador",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc3545',
+                confirmButtonText: 'Sí, borrar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    let users = getLocalUsers();
+                    users = users.filter(u => u.id !== id);
+                    saveLocalUsers(users);
+                    renderUsers();
+                    Swal.fire('Eliminado', '', 'success');
+                }
+            });
+        }
+
+        // Carga inicial
+        renderUsers();
+    </script>
+</body>
+</html>

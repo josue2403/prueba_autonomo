@@ -57,6 +57,7 @@
             <div class="file-input-wrapper">
                 <label for="userImage" class="file-input-label">📷 Foto (Opcional)</label>
                 <input type="file" id="userImage" accept="image/*" style="display: none;">
+                <img id="selectedPreview" class="image-preview" style="display: none; margin-left: 10px; vertical-align: middle;">
             </div>
             <button class="btn-save" id="btnMain" onclick="processForm()">Guardar Usuario</button>
             <button class="btn-cancel" id="btnCancel" onclick="resetForm()" style="display: none;">Cancelar</button>
@@ -78,18 +79,46 @@
         let currentImageBase64 = null;
         const STORAGE_KEY = 'usuarios_db';
 
-        // Manejo de carga de imagen
+        // Manejo de carga de imagen con previsualización y confirmación
         document.getElementById('userImage').addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (file) {
                 const reader = new FileReader();
                 reader.onload = function(event) {
-                    currentImageBase64 = event.target.result;
-                    console.log('Imagen cargada en base64');
+                    const base64 = event.target.result;
+                    Swal.fire({
+                        title: 'Previsualizar imagen',
+                        html: `<div style="text-align:center"><img src="${base64}" style="max-width:100%; border-radius:8px; margin-bottom:8px;"></div><div style="text-align:center">${file.name}</div>`,
+                        showCancelButton: true,
+                        confirmButtonText: 'Confirmar',
+                        cancelButtonText: 'Cancelar',
+                        width: '520px'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            currentImageBase64 = base64;
+                            showImagePreviewInForm(base64);
+                            Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Imagen seleccionada', showConfirmButton: false, timer: 1200 });
+                        } else {
+                            document.getElementById('userImage').value = '';
+                            currentImageBase64 = null;
+                            showImagePreviewInForm(null);
+                        }
+                    });
                 };
                 reader.readAsDataURL(file);
             }
         });
+
+        function showImagePreviewInForm(src) {
+            const img = document.getElementById('selectedPreview');
+            if (src) {
+                img.src = src;
+                img.style.display = 'inline-block';
+            } else {
+                img.src = '';
+                img.style.display = 'none';
+            }
+        }
 
         // --- LÓGICA DE LOCALSTORAGE (Reemplaza a index.js) ---
         
@@ -191,6 +220,7 @@
             document.getElementById('userName').value = name;
             document.getElementById('userEmail').value = email;
             currentImageBase64 = photo || null;
+            showImagePreviewInForm(photo || null);
             document.getElementById('userImage').value = '';
             document.getElementById('btnMain').innerText = "Actualizar";
             document.getElementById('btnMain').className = "btn-update";
@@ -205,6 +235,7 @@
             document.getElementById('userEmail').value = '';
             document.getElementById('userImage').value = '';
             currentImageBase64 = null;
+            showImagePreviewInForm(null);
             document.getElementById('btnMain').innerText = "Guardar Usuario";
             document.getElementById('btnMain').className = "btn-save";
             document.getElementById('btnCancel').style.display = "none";
